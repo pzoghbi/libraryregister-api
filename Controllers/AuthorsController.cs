@@ -22,9 +22,14 @@ namespace LibraryRegister.Controllers
 
         // GET: api/Authors
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Author>>> GetAuthor()
+        public async Task<ActionResult<IEnumerable<Author>>> GetAuthor(int pageIndex = 1, int pageSize = 2)
         {
-            return await _context.Author.ToListAsync();
+            var paginatedList = await PaginatedList<Author>
+                .CreateAsync(_context.Author, pageIndex, pageSize);
+
+            var response = new DTOs.PaginatedResult<Author>(paginatedList);
+            
+            return Ok(response);
         }
 
         // GET: api/Authors/5
