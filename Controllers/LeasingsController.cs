@@ -94,6 +94,20 @@ namespace LibraryRegister.Controllers
                 return NotFound("User not found");
             }
 
+            int activeLeasings = _context.Leasing
+                .Where(l =>
+                    l.UserId == leasing.UserId &&
+                    l.ReturnDate == default
+                )
+                .Count();
+
+            // Todo make administrative constants (etc: LeasesPerUserLimit = 3)
+            // todo response better
+            if (activeLeasings + 1 > 3) {
+                return Ok(Services.LibraryStatusCodes.LeasingsLimitExceeded);
+            }
+
+
             // Check active membership
 
             book.IsAvailable = false;
