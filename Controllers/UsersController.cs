@@ -27,7 +27,10 @@ namespace LibraryRegister.Controllers
         public async Task<ActionResult<IEnumerable<User>>> GetUsers([FromQuery] string name)
         {
             var users = await _context.User
-                .Where(u => u.Name.Contains(name))
+                .Where(u => 
+                    u.Name.Contains(name) ||
+                    u.Email.Contains(name)
+                )
                 .ToListAsync();
 
             if (users == null) { return NoContent(); }
