@@ -22,7 +22,7 @@ namespace LibraryRegister.Controllers
 
         // GET: api/Authors
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Author>>> GetAuthor(int pageIndex = 1, int pageSize = 2)
+        public async Task<ActionResult<IEnumerable<Author>>> GetAuthor(int pageIndex = 1, int pageSize = 5)
         {
             var paginatedList = await PaginatedList<Author>
                 .CreateAsync(_context.Author, pageIndex, pageSize);
@@ -32,13 +32,24 @@ namespace LibraryRegister.Controllers
             return Ok(response);
         }
 
-        // GET: api/Authors/5
-        [HttpGet("{id}")]
+		// GET: api/Authors
+		[HttpGet("search")]
+		public async Task<ActionResult<IEnumerable<Author>>> SearchAuthors(string name = "")
+		{
+			var authors = await _context.Author
+				.Where(a => a.Name.ToLower().StartsWith(name.ToLower()))
+                .ToListAsync();
+
+            return Ok(authors);
+		}
+
+		// GET: api/Authors/5
+		[HttpGet("{id}")]
         public async Task<ActionResult<Author>> GetAuthor(int id)
         {
             var author = await _context.Author.FindAsync(id);
 
-            if (author == null)
+            if (author == null) 
             {
                 return NotFound();
             }
