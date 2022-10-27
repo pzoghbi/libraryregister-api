@@ -8,7 +8,7 @@ namespace LibraryRegister.Models
 	{
 		[Key] public int Id { get; set; }
 		[Required] public string Name { get; set; } = null!;
-		public string? Email { get; set; }
+		[Required] public string Email { get; set; } = null!;
 		public List<Leasing>? Leasings { get; set; } = null!;
 
 		// todo add address, ID number, etc
