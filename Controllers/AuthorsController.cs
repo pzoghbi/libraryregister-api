@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LibraryRegister.Models;
+using LibraryRegister.DAL;
+using LibraryRegister.Services;
+using LibraryRegister.DTOs;
 
 namespace LibraryRegister.Controllers
 {
@@ -13,74 +16,57 @@ namespace LibraryRegister.Controllers
     [ApiController]
     public class AuthorsController : ControllerBase
     {
-        private readonly LibraryDbContext _context;
+        readonly IAuthorRepository authorRepo;
 
         public AuthorsController(LibraryDbContext context)
         {
-            _context = context;
+            authorRepo = new AuthorRepository(context);
         }
 
-        // GET: api/Authors
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Author>>> GetAuthor(int pageIndex = 1, int pageSize = 5)
+        public async Task<ActionResult<PaginatedResult<Author>>> GetAuthorsList(int pageIndex = 1, int pageSize = 5)
         {
-            var paginatedList = await PaginatedList<Author>
-                .CreateAsync(_context.Author, pageIndex, pageSize);
-
-            var response = new DTOs.PaginatedResult<Author>(paginatedList);
-            
-            return Ok(response);
+            var paginatedList = await authorRepo.GetAuthorsList(pageIndex, pageSize);
+            return paginatedList;
         }
 
-		// GET: api/Authors
 		[HttpGet("search")]
 		public async Task<ActionResult<IEnumerable<Author>>> SearchAuthors(string name = "")
 		{
-			var authors = await _context.Author
-				.Where(a => a.Name.ToLower().StartsWith(name.ToLower()))
-                .ToListAsync();
-
+            var authors = await authorRepo.GetMatchingAuthors(name);
             return Ok(authors);
 		}
 
-		// GET: api/Authors/5
 		[HttpGet("{id}")]
         public async Task<ActionResult<Author>> GetAuthor(int id)
         {
-            var author = await _context.Author.FindAsync(id);
+            var author = await authorRepo.FindById(id);
 
-            if (author == null) 
-            {
+            if (author == null) {
                 return NotFound();
             }
 
             return author;
         }
 
-        // PUT: api/Authors/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> PutAuthor(int id, Author author)
         {
-            if (id != author.Id)
-            {
+            if (id != author.Id) {
                 return BadRequest();
             }
 
-            _context.Entry(author).State = EntityState.Modified;
+            authorRepo.UpdateAuthor(id, author);
 
-            try
-            {
-                await _context.SaveChangesAsync();
+            try {
+                await authorRepo.Save();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!AuthorExists(id))
-                {
+                if (!AuthorExists(id)) {
                     return NotFound();
                 }
-                else
-                {
+                else { 
                     throw;
                 }
             }
@@ -88,40 +74,38 @@ namespace LibraryRegister.Controllers
             return NoContent();
         }
 
-        // POST: api/Authors
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         public async Task<ActionResult<Author>> PostAuthor([FromForm] Author author)
         {
-            if (_context.Author.Any(a => a.Name == author.Name)) {
-                return StatusCode(Services.LibraryStatusCodes.DuplicateAuthor);
+            if (authorRepo.AuthorExists(a => a.Name == author.Name)) {
+                return StatusCode(LibraryStatusCodes.DuplicateAuthor);
 			}
 
-            _context.Author.Add(author);
-            await _context.SaveChangesAsync();
+            await authorRepo.InsertAuthor(author);
+            await authorRepo.Save();
 
-            return CreatedAtAction("GetAuthor", new { id = author.Id }, author);
+            return CreatedAtAction(
+                nameof(GetAuthor), 
+                new { id = author.Id }, 
+                author
+            );
         }
 
-        // DELETE: api/Authors/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAuthor(int id)
         {
-            var author = await _context.Author.FindAsync(id);
-            if (author == null)
-            {
+            var author = await authorRepo.FindById(id);
+            if (author == null) {
                 return NotFound();
             }
 
-            _context.Author.Remove(author);
-            await _context.SaveChangesAsync();
+            await authorRepo.DeleteAuthor(id);
+            await authorRepo.Save();
 
             return NoContent();
         }
 
-        private bool AuthorExists(int id)
-        {
-            return _context.Author.Any(e => e.Id == id);
-        }
+        private bool AuthorExists(int id) 
+            => authorRepo.AuthorExists(a => a.Id == id);
     }
 }
