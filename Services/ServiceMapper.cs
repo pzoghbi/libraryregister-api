@@ -6,7 +6,7 @@ namespace LibraryRegister.Services
 {
 	public class ServiceMapper
 	{		
-		public class Services : IDesignTimeServices
+		public class DesignTimeServices : IDesignTimeServices
 		{
 			public void ConfigureDesignTimeServices(IServiceCollection services)
 			{

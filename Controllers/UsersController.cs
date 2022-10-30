@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LibraryRegister.Models;
 using MySql.Data.MySqlClient;
+using LibraryRegister.DAL;
 
 namespace LibraryRegister.Controllers
 {
@@ -14,114 +15,68 @@ namespace LibraryRegister.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly LibraryDbContext _context;
-
-        public UsersController(LibraryDbContext context)
-        {
-            _context = context;
+        readonly IUserRepository userRepo;
+        public UsersController(LibraryDbContext dbContext) {
+            userRepo = new UserRepository(dbContext);
         }
 
-        // GET: api/Users
-        // Find users matching {name} {replaced get all users -> not applicable TODO create private method}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<User>>> GetUsers([FromQuery] string name)
         {
-            var users = await _context.User
-                .Where(u => 
-                    u.Name.Contains(name) ||
-                    u.Email.Contains(name)
-                )
-                .ToListAsync();
-
+            var users = await userRepo.GetMatchingUsers(name);
             if (users == null) { return NoContent(); }
-
             return users;
         }
 
-        // GET: api/Users/5
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> GetUser(int id)
         {
-            var user = await _context.User
-                .Where(u => u.Id == id)
-                .Include(u => u.Leasings
-                    .Where(l => l.ReturnDate == default))
-                .ThenInclude(l => l.Book.Author)
-                .FirstOrDefaultAsync();
-            
-            // Not found Todo Handle Better on Frontend
+            var user = await userRepo.FindById(id);
             if (user == null) {
                 return NotFound("User not found");
             }
-
             return user;
         }
 
-        // PUT: api/Users/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> PutUser(int id, User user)
         {
-            if (id != user.Id)
-            {
+            if (id != user.Id) {
                 return BadRequest();
             }
 
-            _context.Entry(user).State = EntityState.Modified;
+            userRepo.UpdateUser(id, user);
 
-            try
-            {
-                await _context.SaveChangesAsync();
+            try {
+                await userRepo.Save();
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!UserExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+            catch (DbUpdateConcurrencyException) {
+                if (!UserExists(id)) {
+                    return NotFound(); }
+                else throw;
             }
 
             return NoContent();
         }
 
-        // POST: api/Users
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         public async Task<ActionResult<User>> PostUser([FromForm] User user)
         {
-            if (_context.User.Any(u => u.Email == user.Email)) {
-                return new StatusCodeResult(Services.LibraryStatusCodes.DuplicateEmail);
-            }
-
-            _context.User.Add(user);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetUser", new { id = user.Id }, user);
+            await userRepo.InsertUser(user);
+            return CreatedAtAction(
+                nameof(GetUser), 
+                new { id = user.Id }, 
+                user);
         }
 
-        // DELETE: api/Users/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            var user = await _context.User.FindAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            _context.User.Remove(user);
-            await _context.SaveChangesAsync();
-
+            await userRepo.DeleteUser(id);
             return NoContent();
         }
 
-        private bool UserExists(int id)
-        {
-            return _context.User.Any(e => e.Id == id);
-        }
+        private bool UserExists(int id) 
+            => userRepo.UserExists(e => e.Id == id);
     }
 }
