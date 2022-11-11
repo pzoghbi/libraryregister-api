@@ -34,7 +34,7 @@ namespace LibraryRegister.Controllers
             var leasing = await _context.Leasing
                 .Where(l => l.Id == id)
                 .Include(l => l.Book)
-                .ThenInclude(b => b.Author)
+                .ThenInclude(b => b!.Author)
                 .FirstOrDefaultAsync();
 
             if (leasing == null) return NotFound();
@@ -78,6 +78,27 @@ namespace LibraryRegister.Controllers
         [HttpPost]
         public async Task<ActionResult<Leasing>> LeaseBook([FromBody] Leasing leasing)
         {
+            var user = await _context.User.FindAsync(leasing.UserId);
+
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var membership = await _context.Membership
+                .Where(m => m.UserId == user.Id)
+                .FirstOrDefaultAsync();
+
+            if (membership == null)
+			{
+                return new ObjectResult(
+                    new {
+                        statusCode = 123, 
+                        statusText = "No membership for user"
+                    }
+                );
+			}
+
             var book = _context.Book
                 .Where(b => b.Id == leasing.BookId)
                 .Include(b => b.Author)
@@ -89,10 +110,6 @@ namespace LibraryRegister.Controllers
             if (book != null && !book.IsAvailable) {
                 return BadRequest("Book not available");
 			}
-
-            if (!_context.User.Any(u => u.Id == leasing.UserId)) {
-                return NotFound("User not found");
-            }
 
             int activeLeasings = _context.Leasing
                 .Where(l =>
@@ -110,7 +127,7 @@ namespace LibraryRegister.Controllers
 
             // Check active membership
 
-            book.IsAvailable = false;
+            book!.IsAvailable = false;
             _context.Leasing.Add(leasing);
             await _context.SaveChangesAsync();
 
@@ -123,7 +140,7 @@ namespace LibraryRegister.Controllers
         {
             var leasing = await _context.Leasing
                 .Where(l => l.Id == id)
-                .Include(l => l.Book.Author)
+                .Include(l => l.Book!.Author)
                 .FirstOrDefaultAsync();
 
             // Todo respond better

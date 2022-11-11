@@ -24,18 +24,14 @@ namespace LibraryRegister.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<PaginatedResult<Author>>> GetAuthorsList(int pageIndex = 1, int pageSize = 5)
-        {
-            var paginatedList = await authorRepo.GetAuthorsList(pageIndex, pageSize);
-            return paginatedList;
-        }
+        public async Task<ActionResult<PaginatedResult<Author>>> GetAuthorsList(
+            int pageIndex = 1, 
+            int pageSize = 5
+        ) => await authorRepo.GetAuthorsList(pageIndex, pageSize);
 
 		[HttpGet("search")]
 		public async Task<ActionResult<IEnumerable<Author>>> SearchAuthors(string name = "")
-		{
-            var authors = await authorRepo.GetMatchingAuthors(name);
-            return Ok(authors);
-		}
+            => Ok(await authorRepo.GetMatchingAuthors(name));
 
 		[HttpGet("{id}")]
         public async Task<ActionResult<Author>> GetAuthor(int id)
@@ -95,6 +91,7 @@ namespace LibraryRegister.Controllers
         public async Task<IActionResult> DeleteAuthor(int id)
         {
             var author = await authorRepo.FindById(id);
+
             if (author == null) {
                 return NotFound();
             }

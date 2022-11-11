@@ -5,7 +5,7 @@ using System;
 
 namespace LibraryRegister.DAL
 {
-	public class UserRepository : IUserRepository, IDisposable
+	public class UserRepository : IUserRepository
 	{
 		readonly LibraryDbContext db;
 
@@ -14,7 +14,7 @@ namespace LibraryRegister.DAL
 			this.db = db;
 		}
 
-		public async Task<ActionResult<IEnumerable<User>>> GetMatchingUsers(string name)
+		public async Task<IEnumerable<User>> GetMatchingUsers(string name)
 		{
 			return await db.User
 				.Where(u =>
@@ -24,13 +24,13 @@ namespace LibraryRegister.DAL
 				.ToListAsync();
 		}
 
-		public async Task<ActionResult<User>> FindById(int id)
+		public async Task<User?> FindById(int id)
 		{
 			return await db.User
 				.Where(u => u.Id == id)
-				.Include(u => u.Leasings
+				.Include(u => u.Leasings!
 					.Where(l => l.ReturnDate == default))
-				.ThenInclude(l => l.Book.Author)
+				.ThenInclude(l => l.Book!.Author)
 				.FirstOrDefaultAsync();
 		}
 
@@ -45,8 +45,6 @@ namespace LibraryRegister.DAL
 			await db.SaveChangesAsync();
 		}
 
-		public bool UserExists(Func<User, bool> predicate) => db.User.Any(predicate);
-
 		public async Task DeleteUser(int id) {
 			var user = await db.User.FindAsync(id);
 			if (user != null) {
@@ -54,25 +52,8 @@ namespace LibraryRegister.DAL
 			}
 			await Save();
 		}
+		public bool UserExists(Func<User, bool> predicate) => db.User.Any(predicate);
 
 		public async Task Save() => await db.SaveChangesAsync();
-
-		private bool disposed = false;
-
-		protected virtual void Dispose(bool disposing)
-		{
-			if (!this.disposed) {
-				if (disposing) {
-					db.Dispose();
-				}
-			}
-			this.disposed = true;
-		}
-
-		public void Dispose()
-		{
-			Dispose(true);
-			GC.SuppressFinalize(this);
-		}
 	}
 }

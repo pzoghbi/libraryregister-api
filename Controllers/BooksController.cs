@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LibraryRegister.Models;
+using LibraryRegister.DAL;
 
 namespace LibraryRegister.Controllers
 {
@@ -13,61 +14,46 @@ namespace LibraryRegister.Controllers
     [ApiController]
     public class BooksController : ControllerBase
     {
-        private readonly LibraryDbContext _context;
+        readonly IBookRepository bookRepo;
+        readonly IAuthorRepository authorRepo;
 
         public BooksController(LibraryDbContext context)
         {
-            _context = context;
+            bookRepo = new BookRepository(context);
+            authorRepo = new AuthorRepository(context);
         }
 
-        // GET: api/Books
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Book>>> GetBook([FromQuery] string? bookSearchQuery)
+        public async Task<ActionResult<IEnumerable<Book>>> GetBook([FromQuery] string bookSearchQuery)
         {
-            return await _context.Book
-                .Where(b => (
-                    b.Author.Name.Contains(bookSearchQuery) ||
-                    b.Title.Contains(bookSearchQuery)
-                ))
-                .Include(x => x.Author)
-                .Take(10)
-                .ToListAsync();
+            return Ok(await bookRepo.SearchBooks(bookSearchQuery));
         }
 
-        // GET: api/Books/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Book>> GetBook(int id)
         {
-            var book = await _context.Book
-                .Where(b => b.Id == id)
-                .Include(b => b.Author)
-                .FirstOrDefaultAsync();
-
+            var book = await bookRepo.FindById(id);
             if (book == null) { return NotFound(); }
             return book;
         }
 
-        // PUT: api/Books/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> PutBook(int id, Book book)
         {
             if (id != book.Id) { return BadRequest(); }
 
-            _context.Entry(book).State = EntityState.Modified;
+            await bookRepo.UpdateBook(book);
 
-            try
-            {
-                await _context.SaveChangesAsync();
+            try {
+                await bookRepo.Save();
             }
+
             catch (DbUpdateConcurrencyException)
             {
-                if (!BookExists(id))
-                {
+                if (!BookExists(id)) {
                     return NotFound();
                 }
-                else
-                {
+                else {
                     throw;
                 }
             }
@@ -75,72 +61,54 @@ namespace LibraryRegister.Controllers
             return NoContent();
         }
 
-        // POST: api/Books
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         public async Task<ActionResult<Book>> PostBook([FromForm] Book book)
         {
-            Console.WriteLine(book);
-            if (!_context.Author.Any(e => e.Id == book.AuthorId)) {
-                // error
-                throw new Exception("errorchich: u bazi nema covjeka kojeg trazis");
-			} else {
-                book.Author = _context.Author.Find(book.AuthorId);
-			}
+            bool authorExists = authorRepo.AuthorExists(a => a.Id == book.AuthorId);
 
-            _context.Book.Add(book);
-            await _context.SaveChangesAsync();
+            if (!authorExists) {
+                return NotFound("Author not found");
+            }
+            else {
+                book.Author = await authorRepo.FindById(book.AuthorId);
+            }
 
-            return CreatedAtAction("GetBook", new { id = book.Id }, book);
+            await bookRepo.InsertBook(book);
+            await bookRepo.Save();
+
+            return CreatedAtAction(
+                nameof(GetBook), 
+                new { id = book.Id }, 
+                book
+            );
         }
 
-        // DELETE: api/Books/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBook(int id)
-        { 
-            var book = await _context.Book.FindAsync(id);
-            if (book == null)
-            {
+        {
+            if (!BookExists(id)) {
                 return NotFound();
             }
 
-            _context.Book.Remove(book);
-            await _context.SaveChangesAsync();
+            await bookRepo.DeleteBook(id);
+            await bookRepo.Save();
 
             return NoContent();
         }
 
-
-        // POST: api/book/5/return
         [HttpGet("{bookId}/return")]
         public async Task<ActionResult<Book>> ReturnBook(int bookId)
         {
-            var book = await _context.Book
-                .Where(b => b.Id == bookId)
-                .Include(b => b.Author)
-                .FirstOrDefaultAsync();
+            var book = await bookRepo.ReturnBook(bookId);
 
-            if (book == null) return NotFound("Book not found");
-            if (book.IsAvailable) return BadRequest("Book already returned");
-            book.IsAvailable = true;
+            if (book == null) { 
+                return NotFound("Book not found");
+            }
 
-            // Find last relevant leasing
-            // Todo use service/repo to update leasing
-            var leasing = await _context.Leasing
-                .Where(
-                    l => l.BookId == bookId &&
-                    l.ReturnDate == default)
-                .FirstOrDefaultAsync();
-
-            if (leasing != null) leasing.ReturnDate = DateTime.Now;
-
-            await _context.SaveChangesAsync();
+            await bookRepo.Save();
             return book;
         }
 
-        private bool BookExists(int id)
-        {
-            return _context.Book.Any(e => e.Id == id);
-        }
+        private bool BookExists(int id) => bookRepo.BookExists(b => b.Id == id);
     }
 }

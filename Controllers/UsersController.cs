@@ -25,7 +25,7 @@ namespace LibraryRegister.Controllers
         {
             var users = await userRepo.GetMatchingUsers(name);
             if (users == null) { return NoContent(); }
-            return users;
+            return Ok(users);
         }
 
         [HttpGet("{id}")]
@@ -62,6 +62,7 @@ namespace LibraryRegister.Controllers
         [HttpPost]
         public async Task<ActionResult<User>> PostUser([FromForm] User user)
         {
+            // Todo handle duplicate email
             await userRepo.InsertUser(user);
             return CreatedAtAction(
                 nameof(GetUser), 

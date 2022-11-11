@@ -15,9 +15,7 @@ namespace LibraryRegister.DAL
 			this.db = db;
 		}
 
-		public bool AuthorExists(Func<Author, bool> predicate) {
-			return db.Author.Any(predicate);
-		}
+		public bool AuthorExists(Func<Author, bool> predicate) => db.Author.Any(predicate);
 
 		public async Task DeleteAuthor(int id)
 		{
@@ -27,12 +25,9 @@ namespace LibraryRegister.DAL
 			}
 		}
 
-		public async Task<ActionResult<Author>> FindById(int id)
-		{
-			return await db.Author.FindAsync(id);
-		}
+		public async Task<Author?> FindById(int id) => await db.Author.FindAsync(id);
 
-		public async Task<ActionResult<PaginatedResult<Author>>> 
+		public async Task<PaginatedResult<Author>> 
 			GetAuthorsList(int pageIndex, int pageSize)
 		{
 			var paginatedList = await PaginatedList<Author>.CreateAsync(
@@ -44,8 +39,7 @@ namespace LibraryRegister.DAL
 			return new PaginatedResult<Author>(paginatedList);
 		}
 
-		public async Task<ActionResult<IEnumerable<Author>>> GetMatchingAuthors(string name)
-		{
+		public async Task<IEnumerable<Author>> GetMatchingAuthors(string name) {
 			return await db.Author
 				.Where(a => 
 					a.Name.ToLower().StartsWith(name.ToLower())
@@ -53,19 +47,19 @@ namespace LibraryRegister.DAL
 				.ToListAsync();
 		}
 
-		public async Task InsertAuthor(Author author)
-		{
+		public async Task InsertAuthor(Author author) {
 			await db.Author.AddAsync(author);
 		}
 
-		public async Task Save()
-		{
+		public void UpdateAuthor(int id, Author author) {
+			Task.Run(() => {
+				db.Entry(author).State = EntityState.Modified;
+			});
+		}
+
+		public async Task Save() {
 			await db.SaveChangesAsync();
 		}
 
-		public void UpdateAuthor(int id, Author author)
-		{
-			db.Entry(author).State = EntityState.Modified;
-		}
 	}
 }

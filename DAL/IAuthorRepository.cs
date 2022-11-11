@@ -7,9 +7,9 @@ namespace LibraryRegister.DAL
 {
 	public interface IAuthorRepository
 	{
-		Task<ActionResult<PaginatedResult<Author>>> GetAuthorsList(int pageIndex, int pageSize);
-		Task<ActionResult<IEnumerable<Author>>> GetMatchingAuthors(string name);
-		Task<ActionResult<Author>> FindById(int id);
+		Task<PaginatedResult<Author>> GetAuthorsList(int pageIndex, int pageSize);
+		Task<IEnumerable<Author>> GetMatchingAuthors(string name);
+		Task<Author?> FindById(int id);
 		Task InsertAuthor(Author author);
 		Task DeleteAuthor(int id);
 		void UpdateAuthor(int id, Author author);

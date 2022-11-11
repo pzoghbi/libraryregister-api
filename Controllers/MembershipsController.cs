@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LibraryRegister.Models;
+using LibraryRegister.DAL;
 
 namespace LibraryRegister.Controllers
 {
@@ -13,31 +14,31 @@ namespace LibraryRegister.Controllers
     [ApiController]
     public class MembershipsController : ControllerBase
     {
-        private readonly LibraryDbContext _context;
+        readonly IMembershipRepository membershipRepo;
 
         public MembershipsController(LibraryDbContext context)
         {
-            _context = context;
+            membershipRepo = new MembershipRepository(context);
         }
 
-        // GET: api/Memberships
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Membership>>> GetMembership()
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<Membership>> GetUserMembership(int userId)
         {
-            return await _context.Membership.ToListAsync();
+            var memberShip = await membershipRepo.FindByUserId(userId);
+
+            if (memberShip == null) {
+                return NoContent();
+            }
+
+            return memberShip;
         }
 
-        // GET: api/Memberships/{userId]
-        // Gets the latest membership for user
-        [HttpGet("{userId}")]
-        public async Task<ActionResult<Membership>> GetMembership(int userId)
+        [HttpGet("{guid}")]
+        public async Task<ActionResult<Membership>> GetMembership(Guid guid)
         {
-            var memberShip = await _context.Membership
-                .Where(m => m.UserId == userId)
-                .OrderByDescending(m => m.ValidUntil)
-                .FirstOrDefaultAsync();
+            var memberShip = await membershipRepo.FindByGuid(guid);
 
-            if (memberShip == null) 
+            if (memberShip == null)
             {
                 return NoContent();
             }
@@ -45,29 +46,27 @@ namespace LibraryRegister.Controllers
             return memberShip;
         }
 
-        // PUT: api/Memberships/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutMembership(Guid id, Membership memberShip)
+        public async Task<IActionResult> PutMembership(Guid guid, Membership memberShip)
         {
-            if (id != memberShip.Guid)
+            if (guid != memberShip.Guid)
             {
                 return BadRequest();
             }
 
-            _context.Entry(memberShip).State = EntityState.Modified;
+            await membershipRepo.UpdateMembership(memberShip);
 
             try
             {
-                await _context.SaveChangesAsync();
+                await membershipRepo.Save();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!MembershipExists(id))
+                if (!MembershipExists(guid))
                 {
                     return NotFound();
                 }
-                else
+                else 
                 {
                     throw;
                 }
@@ -76,43 +75,37 @@ namespace LibraryRegister.Controllers
             return NoContent();
         }
 
-        // POST: api/Memberships
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
         public async Task<ActionResult<Membership>> PostMembership(Membership membership)
         {
-            Console.WriteLine("Hello");
-            if (_context.Membership.Any(m => 
+            if (membershipRepo.MembershipExists(m => 
                 m.UserId == membership.UserId && 
-                m.ValidUntil > DateTime.UtcNow)) {
+                m.ValidUntil > DateTime.UtcNow)
+            ) {
                 return new StatusCodeResult(Services.LibraryStatusCodes.ActiveMembershipExists);
             }
+            
+            await membershipRepo.InsertMembership(membership);
+            await membershipRepo.Save();
 
-            _context.Membership.Add(membership);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetMembership", new { id = membership.Guid }, membership);
+            return CreatedAtAction(nameof(GetMembership), new { guid = membership.Guid }, membership);
         }
 
-        // DELETE: api/Memberships/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteMembership(Guid id)
+        public async Task<IActionResult> DeleteMembership(Guid guid)
         {
-            var memberShip = await _context.Membership.FindAsync(id);
-            if (memberShip == null)
+            if (!MembershipExists(guid))
             {
                 return NotFound();
             }
 
-            _context.Membership.Remove(memberShip);
-            await _context.SaveChangesAsync();
+            await membershipRepo.DeleteMembership(guid);
+            await membershipRepo.Save();
 
             return NoContent();
         }
 
-        private bool MembershipExists(Guid id)
-        {
-            return _context.Membership.Any(e => e.Guid == id);
-        }
+        private bool MembershipExists(Guid guid) => 
+            membershipRepo.MembershipExists(m => m.Guid == guid);
     }
 }

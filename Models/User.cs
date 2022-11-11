@@ -12,5 +12,10 @@ namespace LibraryRegister.Models
 		public List<Leasing>? Leasings { get; set; } = null!;
 
 		// todo add address, ID number, etc
+
+		public User()
+		{
+			Leasings = new List<Leasing>();
+		}
 	}
 }
